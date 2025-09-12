@@ -1,5 +1,5 @@
 
-\restrict bQqHsXzs81wvMZUdnjLXd6gbsmv87ZAnIVuVLO30eKriwiqaRVdKZbvg3zBhtrr
+\restrict LLHgxJrVYMr3lUDHeP6ZAq5a7WbJWAWyyg7Qtu8NmuYoAuGgwjsGdPejOrtZIeM
 
 
 SET statement_timeout = 0;
@@ -450,6 +450,28 @@ CREATE TABLE IF NOT EXISTS "public"."project_relation" (
 ALTER TABLE "public"."project_relation" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."scope" (
+    "slug" character varying(128) NOT NULL,
+    "displayName" "text",
+    "description" "text"
+);
+
+
+ALTER TABLE "public"."scope" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."scope"."slug" IS 'Unique identifier of the scope for example: "project:create"';
+
+
+
+COMMENT ON COLUMN "public"."scope"."displayName" IS 'Name used to display in the UI';
+
+
+
+COMMENT ON COLUMN "public"."scope"."description" IS 'Text describing the scope in more detail of users';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."settings" (
     "key" character varying(255) NOT NULL,
     "value" "text" NOT NULL,
@@ -766,6 +788,11 @@ ALTER TABLE ONLY "public"."insights_by_period"
 
 ALTER TABLE ONLY "public"."workflow_history"
     ADD CONSTRAINT "PK_b6572dd6173e4cd06fe79937b58" PRIMARY KEY ("versionId");
+
+
+
+ALTER TABLE ONLY "public"."scope"
+    ADD CONSTRAINT "PK_bfc45df0481abd7f355d6187da1" PRIMARY KEY ("slug");
 
 
 
@@ -1493,6 +1520,12 @@ GRANT ALL ON TABLE "public"."project_relation" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."scope" TO "anon";
+GRANT ALL ON TABLE "public"."scope" TO "authenticated";
+GRANT ALL ON TABLE "public"."scope" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."settings" TO "anon";
 GRANT ALL ON TABLE "public"."settings" TO "authenticated";
 GRANT ALL ON TABLE "public"."settings" TO "service_role";
@@ -1637,6 +1670,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 
-\unrestrict bQqHsXzs81wvMZUdnjLXd6gbsmv87ZAnIVuVLO30eKriwiqaRVdKZbvg3zBhtrr
+\unrestrict LLHgxJrVYMr3lUDHeP6ZAq5a7WbJWAWyyg7Qtu8NmuYoAuGgwjsGdPejOrtZIeM
 
 RESET ALL;

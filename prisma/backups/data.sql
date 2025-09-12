@@ -4,7 +4,7 @@ SET session_replication_role = replica;
 -- PostgreSQL database dump
 --
 
-\restrict VP2VoFmULZSOIIA9sah73yiVPfvObkXX1BRu7LhOjdmACcyJLScJtujDy8td0kb
+\restrict s7iKDYOE1iMJ54hVod1ZCG0MWYCskevOSu687XNg6cj9r103xfynDW74DSWf8Cd
 
 -- Dumped from database version 17.4
 -- Dumped by pg_dump version 17.6
@@ -727,6 +727,7 @@ COPY "public"."migrations" ("id", "timestamp", "name") FROM stdin;
 90	1747824239000	AddProjectDescriptionColumn1747824239000
 91	1750252139166	AddLastActiveAtColumnToUser1750252139166
 92	1752669793000	AddInputsOutputsToTestCaseExecution1752669793000
+93	1750252139166	AddScopeTables1750252139166
 \.
 
 
@@ -744,6 +745,14 @@ COPY "public"."processed_data" ("workflowId", "context", "createdAt", "updatedAt
 
 COPY "public"."project_relation" ("projectId", "userId", "role", "createdAt", "updatedAt") FROM stdin;
 Gqyvau1J0jhxsayS	f72059c4-d73c-460f-b3d9-5c2e1e562c80	project:personalOwner	2025-08-25 06:56:24.731+00	2025-08-25 06:56:24.731+00
+\.
+
+
+--
+-- Data for Name: scope; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY "public"."scope" ("slug", "displayName", "description") FROM stdin;
 \.
 
 
@@ -963,13 +972,13 @@ SELECT pg_catalog.setval('"public"."insights_raw_id_seq"', 1, false);
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('"public"."migrations_id_seq"', 92, true);
+SELECT pg_catalog.setval('"public"."migrations_id_seq"', 93, true);
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict VP2VoFmULZSOIIA9sah73yiVPfvObkXX1BRu7LhOjdmACcyJLScJtujDy8td0kb
+\unrestrict s7iKDYOE1iMJ54hVod1ZCG0MWYCskevOSu687XNg6cj9r103xfynDW74DSWf8Cd
 
 RESET ALL;
