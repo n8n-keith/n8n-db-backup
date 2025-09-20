@@ -4,7 +4,7 @@ SET session_replication_role = replica;
 -- PostgreSQL database dump
 --
 
-\restrict OWjMBlVSTOjZiYVk2ggGZMDJYLIcbc78njWLAY7fm3GQHlByZt6hqfl9MoEq36u
+\restrict 8Wd5D5cQxakWHcD2alZJv3zsoA7WNgmMwiFi59m9cxIBYxmJNBIHtAr2qdgAh62
 
 -- Dumped from database version 17.4
 -- Dumped by pg_dump version 17.6
@@ -162,7 +162,7 @@ COPY "public"."annotation_tag_entity" ("id", "name", "createdAt", "updatedAt") F
 --
 
 COPY "public"."user" ("id", "email", "firstName", "lastName", "password", "personalizationAnswers", "createdAt", "updatedAt", "settings", "disabled", "mfaEnabled", "mfaSecret", "mfaRecoveryCodes", "role", "lastActiveAt") FROM stdin;
-f72059c4-d73c-460f-b3d9-5c2e1e562c80	keithergt@gmail.com	Keith Walter	Torreblanca	$2a$10$AWbQHaoL9pH/nhBaBX9SseUHyR3lB36gRaF3Pcznbk3k8xsD0k3u6	{"version":"v4","personalization_survey_submitted_at":"2025-08-25T07:02:04.655Z","personalization_survey_n8n_version":"1.107.4","automationGoalDevops":["ticketing-systems-integrations"],"companySize":"<20","companyType":"systems-integrator","role":"it","reportedSource":"google"}	2025-08-25 06:53:06.753+00	2025-09-18 12:19:22.052+00	{"userActivated": false}	f	f	\N	\N	global:owner	2025-09-18
+f72059c4-d73c-460f-b3d9-5c2e1e562c80	keithergt@gmail.com	Keith Walter	Torreblanca	$2a$10$AWbQHaoL9pH/nhBaBX9SseUHyR3lB36gRaF3Pcznbk3k8xsD0k3u6	{"version":"v4","personalization_survey_submitted_at":"2025-08-25T07:02:04.655Z","personalization_survey_n8n_version":"1.107.4","automationGoalDevops":["ticketing-systems-integrations"],"companySize":"<20","companyType":"systems-integrator","role":"it","reportedSource":"google"}	2025-08-25 06:53:06.753+00	2025-09-19 12:22:18.265+00	{"userActivated": false}	f	f	\N	\N	global:owner	2025-09-19
 \.
 
 
@@ -1034,6 +1034,6 @@ SELECT pg_catalog.setval('"public"."migrations_id_seq"', 93, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict OWjMBlVSTOjZiYVk2ggGZMDJYLIcbc78njWLAY7fm3GQHlByZt6hqfl9MoEq36u
+\unrestrict 8Wd5D5cQxakWHcD2alZJv3zsoA7WNgmMwiFi59m9cxIBYxmJNBIHtAr2qdgAh62
 
 RESET ALL;
