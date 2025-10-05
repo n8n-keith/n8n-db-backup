@@ -4,7 +4,7 @@ SET session_replication_role = replica;
 -- PostgreSQL database dump
 --
 
--- \restrict foecKL9n1J6WWrxTrPYByIEskASigfiETCFZLaQvoE3a5uf6oTVF2pW3QEwfcBT
+-- \restrict ZCtOvculdmpz7k6s6P9LxIXXAEH2EqDcL8m7JBryGF0doUFS1TSsxttcJ3HTggN
 
 -- Dumped from database version 17.4
 -- Dumped by pg_dump version 17.6
@@ -162,7 +162,7 @@ COPY "public"."annotation_tag_entity" ("id", "name", "createdAt", "updatedAt") F
 --
 
 COPY "public"."user" ("id", "email", "firstName", "lastName", "password", "personalizationAnswers", "createdAt", "updatedAt", "settings", "disabled", "mfaEnabled", "mfaSecret", "mfaRecoveryCodes", "role", "lastActiveAt") FROM stdin;
-f72059c4-d73c-460f-b3d9-5c2e1e562c80	keithergt@gmail.com	Keith Walter	Torreblanca	$2a$10$AWbQHaoL9pH/nhBaBX9SseUHyR3lB36gRaF3Pcznbk3k8xsD0k3u6	{"version":"v4","personalization_survey_submitted_at":"2025-08-25T07:02:04.655Z","personalization_survey_n8n_version":"1.107.4","automationGoalDevops":["ticketing-systems-integrations"],"companySize":"<20","companyType":"systems-integrator","role":"it","reportedSource":"google"}	2025-08-25 06:53:06.753+00	2025-09-30 11:31:22.869+00	{"userActivated": false}	f	f	\N	\N	global:owner	2025-09-30
+f72059c4-d73c-460f-b3d9-5c2e1e562c80	keithergt@gmail.com	Keith Walter	Torreblanca	$2a$10$AWbQHaoL9pH/nhBaBX9SseUHyR3lB36gRaF3Pcznbk3k8xsD0k3u6	{"version":"v4","personalization_survey_submitted_at":"2025-08-25T07:02:04.655Z","personalization_survey_n8n_version":"1.107.4","automationGoalDevops":["ticketing-systems-integrations"],"companySize":"<20","companyType":"systems-integrator","role":"it","reportedSource":"google"}	2025-08-25 06:53:06.753+00	2025-10-04 12:24:07.006+00	{"userActivated": false}	f	f	\N	\N	global:owner	2025-10-04
 \.
 
 
@@ -1034,6 +1034,6 @@ SELECT pg_catalog.setval('"public"."migrations_id_seq"', 93, true);
 -- PostgreSQL database dump complete
 --
 
--- \unrestrict foecKL9n1J6WWrxTrPYByIEskASigfiETCFZLaQvoE3a5uf6oTVF2pW3QEwfcBT
+-- \unrestrict ZCtOvculdmpz7k6s6P9LxIXXAEH2EqDcL8m7JBryGF0doUFS1TSsxttcJ3HTggN
 
 RESET ALL;
