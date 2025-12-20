@@ -4,7 +4,7 @@ SET session_replication_role = replica;
 -- PostgreSQL database dump
 --
 
--- \restrict KoYT55ovHlPg9m6AvnCtlFbHcQzb0Bs0j6LzADnF9fytM9K5qU10lvZEMln8Yxl
+-- \restrict lyAvH9vSAJOa5tvF5XhXBaJ5X0xGuRuugr0qsz3AErT3PMZSDHY0pW8bSkfRWPz
 
 -- Dumped from database version 17.4
 -- Dumped by pg_dump version 17.6
@@ -205,7 +205,7 @@ workflow:editor	Workflow Editor	Workflow Editor	workflow	t	2025-10-07 11:49:50.5
 --
 
 COPY "public"."user" ("id", "email", "firstName", "lastName", "password", "personalizationAnswers", "createdAt", "updatedAt", "settings", "disabled", "mfaEnabled", "mfaSecret", "mfaRecoveryCodes", "lastActiveAt", "roleSlug") FROM stdin;
-f72059c4-d73c-460f-b3d9-5c2e1e562c80	keithergt@gmail.com	Keith Walter	Torreblanca	$2a$10$AWbQHaoL9pH/nhBaBX9SseUHyR3lB36gRaF3Pcznbk3k8xsD0k3u6	{"version":"v4","personalization_survey_submitted_at":"2025-08-25T07:02:04.655Z","personalization_survey_n8n_version":"1.107.4","automationGoalDevops":["ticketing-systems-integrations"],"companySize":"<20","companyType":"systems-integrator","role":"it","reportedSource":"google"}	2025-08-25 06:53:06.753+00	2025-12-11 01:24:05.671+00	{"userActivated":true,"easyAIWorkflowOnboarded":true,"firstSuccessfulWorkflowId":"a9szlrQBELM41VLk","userActivatedAt":1759748445057,"npsSurvey":{"waitingForResponse":true,"ignoredCount":1,"lastShownAt":1761399120185}}	f	f	\N	\N	2025-12-11	global:owner
+f72059c4-d73c-460f-b3d9-5c2e1e562c80	keithergt@gmail.com	Keith Walter	Torreblanca	$2a$10$AWbQHaoL9pH/nhBaBX9SseUHyR3lB36gRaF3Pcznbk3k8xsD0k3u6	{"version":"v4","personalization_survey_submitted_at":"2025-08-25T07:02:04.655Z","personalization_survey_n8n_version":"1.107.4","automationGoalDevops":["ticketing-systems-integrations"],"companySize":"<20","companyType":"systems-integrator","role":"it","reportedSource":"google"}	2025-08-25 06:53:06.753+00	2025-12-20 01:04:32.975+00	{"userActivated":true,"easyAIWorkflowOnboarded":true,"firstSuccessfulWorkflowId":"a9szlrQBELM41VLk","userActivatedAt":1759748445057,"npsSurvey":{"waitingForResponse":true,"ignoredCount":1,"lastShownAt":1761399120185}}	f	f	\N	\N	2025-12-20	global:owner
 \.
 
 
@@ -1246,6 +1246,6 @@ SELECT pg_catalog.setval('"public"."migrations_id_seq"', 100, true);
 -- PostgreSQL database dump complete
 --
 
--- \unrestrict KoYT55ovHlPg9m6AvnCtlFbHcQzb0Bs0j6LzADnF9fytM9K5qU10lvZEMln8Yxl
+-- \unrestrict lyAvH9vSAJOa5tvF5XhXBaJ5X0xGuRuugr0qsz3AErT3PMZSDHY0pW8bSkfRWPz
 
 RESET ALL;
