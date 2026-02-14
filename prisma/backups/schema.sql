@@ -51,6 +51,21 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
+
+CREATE OR REPLACE FUNCTION "public"."increment_workflow_version"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+			BEGIN
+				IF NEW."versionCounter" IS NOT DISTINCT FROM OLD."versionCounter" THEN
+					NEW."versionCounter" = OLD."versionCounter" + 1;
+				END IF;
+				RETURN NEW;
+			END;
+			$$;
+
+
+ALTER FUNCTION "public"."increment_workflow_version"() OWNER TO "postgres";
+
 SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
@@ -113,6 +128,158 @@ ALTER SEQUENCE "public"."auth_provider_sync_history_id_seq" OWNED BY "public"."a
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."binary_data" (
+    "fileId" "uuid" NOT NULL,
+    "sourceType" character varying(50) NOT NULL,
+    "sourceId" character varying(255) NOT NULL,
+    "data" "bytea" NOT NULL,
+    "mimeType" character varying(255),
+    "fileName" character varying(255),
+    "fileSize" integer NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "CHK_binary_data_sourceType" CHECK ((("sourceType")::"text" = ANY ((ARRAY['execution'::character varying, 'chat_message_attachment'::character varying])::"text"[])))
+);
+
+
+ALTER TABLE "public"."binary_data" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."binary_data"."sourceType" IS 'Source the file belongs to, e.g. ''execution''';
+
+
+
+COMMENT ON COLUMN "public"."binary_data"."sourceId" IS 'ID of the source, e.g. execution ID';
+
+
+
+COMMENT ON COLUMN "public"."binary_data"."data" IS 'Raw, not base64 encoded';
+
+
+
+COMMENT ON COLUMN "public"."binary_data"."fileSize" IS 'In bytes';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."chat_hub_agents" (
+    "id" "uuid" NOT NULL,
+    "name" character varying(256) NOT NULL,
+    "description" character varying(512),
+    "systemPrompt" "text" NOT NULL,
+    "ownerId" "uuid" NOT NULL,
+    "credentialId" character varying(36),
+    "provider" character varying(16) NOT NULL,
+    "model" character varying(64) NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "tools" json DEFAULT '[]'::json NOT NULL,
+    "icon" json
+);
+
+
+ALTER TABLE "public"."chat_hub_agents" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."chat_hub_agents"."provider" IS 'ChatHubProvider enum: "openai", "anthropic", "google", "n8n"';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_agents"."model" IS 'Model name used at the respective Model node, ie. "gpt-4"';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_agents"."tools" IS 'Tools available to the agent as JSON node definitions';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."chat_hub_messages" (
+    "id" "uuid" NOT NULL,
+    "sessionId" "uuid" NOT NULL,
+    "previousMessageId" "uuid",
+    "revisionOfMessageId" "uuid",
+    "retryOfMessageId" "uuid",
+    "type" character varying(16) NOT NULL,
+    "name" character varying(128) NOT NULL,
+    "content" "text" NOT NULL,
+    "provider" character varying(16),
+    "model" character varying(256),
+    "workflowId" character varying(36),
+    "executionId" integer,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "agentId" "uuid",
+    "status" character varying(16) DEFAULT 'success'::character varying NOT NULL,
+    "attachments" json
+);
+
+
+ALTER TABLE "public"."chat_hub_messages" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."chat_hub_messages"."type" IS 'ChatHubMessageType enum: "human", "ai", "system", "tool", "generic"';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_messages"."provider" IS 'ChatHubProvider enum: "openai", "anthropic", "google", "n8n"';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_messages"."model" IS 'Model name used at the respective Model node, ie. "gpt-4"';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_messages"."agentId" IS 'ID of the custom agent (if provider is "custom-agent")';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_messages"."status" IS 'ChatHubMessageStatus enum, eg. "success", "error", "running", "cancelled"';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_messages"."attachments" IS 'File attachments for the message (if any), stored as JSON. Files are stored as base64-encoded data URLs.';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."chat_hub_sessions" (
+    "id" "uuid" NOT NULL,
+    "title" character varying(256) NOT NULL,
+    "ownerId" "uuid" NOT NULL,
+    "lastMessageAt" timestamp(3) with time zone NOT NULL,
+    "credentialId" character varying(36),
+    "provider" character varying(16),
+    "model" character varying(256),
+    "workflowId" character varying(36),
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "agentId" "uuid",
+    "agentName" character varying(128),
+    "tools" json DEFAULT '[]'::json NOT NULL
+);
+
+
+ALTER TABLE "public"."chat_hub_sessions" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."chat_hub_sessions"."provider" IS 'ChatHubProvider enum: "openai", "anthropic", "google", "n8n"';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_sessions"."model" IS 'Model name used at the respective Model node, ie. "gpt-4"';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_sessions"."agentId" IS 'ID of the custom agent (if provider is "custom-agent")';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_sessions"."agentName" IS 'Cached name of the custom agent (if provider is "custom-agent")';
+
+
+
+COMMENT ON COLUMN "public"."chat_hub_sessions"."tools" IS 'Tools available to the agent as JSON node definitions';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."credentials_entity" (
     "name" character varying(128) NOT NULL,
     "data" "text" NOT NULL,
@@ -120,7 +287,11 @@ CREATE TABLE IF NOT EXISTS "public"."credentials_entity" (
     "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
     "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
     "id" character varying(36) NOT NULL,
-    "isManaged" boolean DEFAULT false NOT NULL
+    "isManaged" boolean DEFAULT false NOT NULL,
+    "isGlobal" boolean DEFAULT false NOT NULL,
+    "isResolvable" boolean DEFAULT false NOT NULL,
+    "resolvableAllowFallback" boolean DEFAULT false NOT NULL,
+    "resolverId" character varying(16)
 );
 
 
@@ -159,6 +330,49 @@ COMMENT ON COLUMN "public"."data_table_column"."type" IS 'Expected: string, numb
 
 COMMENT ON COLUMN "public"."data_table_column"."index" IS 'Column order, starting from 0 (0 = first column)';
 
+
+
+CREATE TABLE IF NOT EXISTS "public"."dynamic_credential_entry" (
+    "credential_id" character varying(16) NOT NULL,
+    "subject_id" character varying(2048) NOT NULL,
+    "resolver_id" character varying(16) NOT NULL,
+    "data" "text" NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."dynamic_credential_entry" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."dynamic_credential_resolver" (
+    "id" character varying(16) NOT NULL,
+    "name" character varying(128) NOT NULL,
+    "type" character varying(128) NOT NULL,
+    "config" "text" NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."dynamic_credential_resolver" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."dynamic_credential_resolver"."config" IS 'Encrypted resolver configuration (JSON encrypted as string)';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."dynamic_credential_user_entry" (
+    "credentialId" character varying(16) NOT NULL,
+    "userId" "uuid" NOT NULL,
+    "resolverId" character varying(16) NOT NULL,
+    "data" "text" NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."dynamic_credential_user_entry" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."event_destinations" (
@@ -213,7 +427,8 @@ ALTER SEQUENCE "public"."execution_annotations_id_seq" OWNED BY "public"."execut
 CREATE TABLE IF NOT EXISTS "public"."execution_data" (
     "executionId" integer NOT NULL,
     "workflowData" json NOT NULL,
-    "data" "text" NOT NULL
+    "data" "text" NOT NULL,
+    "workflowVersionId" character varying(36)
 );
 
 
@@ -232,7 +447,9 @@ CREATE TABLE IF NOT EXISTS "public"."execution_entity" (
     "status" character varying NOT NULL,
     "workflowId" character varying(36) NOT NULL,
     "deletedAt" timestamp(3) with time zone,
-    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "storedAt" character varying(2) DEFAULT 'db'::character varying NOT NULL,
+    CONSTRAINT "execution_entity_storedAt_check" CHECK ((("storedAt")::"text" = ANY ((ARRAY['db'::character varying, 'fs'::character varying, 's3'::character varying])::"text"[])))
 );
 
 
@@ -308,7 +525,7 @@ CREATE TABLE IF NOT EXISTS "public"."insights_by_period" (
     "id" integer NOT NULL,
     "metaId" integer NOT NULL,
     "type" integer NOT NULL,
-    "value" integer NOT NULL,
+    "value" bigint NOT NULL,
     "periodUnit" integer NOT NULL,
     "periodStart" timestamp(0) with time zone DEFAULT CURRENT_TIMESTAMP
 );
@@ -338,7 +555,7 @@ ALTER TABLE "public"."insights_by_period" ALTER COLUMN "id" ADD GENERATED BY DEF
 
 CREATE TABLE IF NOT EXISTS "public"."insights_metadata" (
     "metaId" integer NOT NULL,
-    "workflowId" character varying(16),
+    "workflowId" character varying(36),
     "projectId" character varying(36),
     "workflowName" character varying(128) NOT NULL,
     "projectName" character varying(255) NOT NULL
@@ -363,7 +580,7 @@ CREATE TABLE IF NOT EXISTS "public"."insights_raw" (
     "id" integer NOT NULL,
     "metaId" integer NOT NULL,
     "type" integer NOT NULL,
-    "value" integer NOT NULL,
+    "value" bigint NOT NULL,
     "timestamp" timestamp(0) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -445,6 +662,101 @@ ALTER SEQUENCE "public"."migrations_id_seq" OWNED BY "public"."migrations"."id";
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."oauth_access_tokens" (
+    "token" character varying NOT NULL,
+    "clientId" character varying NOT NULL,
+    "userId" "uuid" NOT NULL
+);
+
+
+ALTER TABLE "public"."oauth_access_tokens" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."oauth_authorization_codes" (
+    "code" character varying(255) NOT NULL,
+    "clientId" character varying NOT NULL,
+    "userId" "uuid" NOT NULL,
+    "redirectUri" character varying NOT NULL,
+    "codeChallenge" character varying NOT NULL,
+    "codeChallengeMethod" character varying(255) NOT NULL,
+    "expiresAt" bigint NOT NULL,
+    "state" character varying,
+    "used" boolean DEFAULT false NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."oauth_authorization_codes" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."oauth_authorization_codes"."expiresAt" IS 'Unix timestamp in milliseconds';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."oauth_clients" (
+    "id" character varying NOT NULL,
+    "name" character varying(255) NOT NULL,
+    "redirectUris" json NOT NULL,
+    "grantTypes" json NOT NULL,
+    "clientSecret" character varying(255),
+    "clientSecretExpiresAt" bigint,
+    "tokenEndpointAuthMethod" character varying(255) DEFAULT 'none'::character varying NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."oauth_clients" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."oauth_clients"."tokenEndpointAuthMethod" IS 'Possible values: none, client_secret_basic or client_secret_post';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."oauth_refresh_tokens" (
+    "token" character varying(255) NOT NULL,
+    "clientId" character varying NOT NULL,
+    "userId" "uuid" NOT NULL,
+    "expiresAt" bigint NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."oauth_refresh_tokens" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."oauth_refresh_tokens"."expiresAt" IS 'Unix timestamp in milliseconds';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."oauth_user_consents" (
+    "id" integer NOT NULL,
+    "userId" "uuid" NOT NULL,
+    "clientId" character varying NOT NULL,
+    "grantedAt" bigint NOT NULL
+);
+
+
+ALTER TABLE "public"."oauth_user_consents" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."oauth_user_consents"."grantedAt" IS 'Unix timestamp in milliseconds';
+
+
+
+ALTER TABLE "public"."oauth_user_consents" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."oauth_user_consents_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."processed_data" (
     "workflowId" character varying(36) NOT NULL,
     "context" character varying(255) NOT NULL,
@@ -464,11 +776,16 @@ CREATE TABLE IF NOT EXISTS "public"."project" (
     "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
     "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
     "icon" json,
-    "description" character varying(512)
+    "description" character varying(512),
+    "creatorId" "uuid"
 );
 
 
 ALTER TABLE "public"."project" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."project"."creatorId" IS 'ID of the user who created the project';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."project_relation" (
@@ -481,6 +798,17 @@ CREATE TABLE IF NOT EXISTS "public"."project_relation" (
 
 
 ALTER TABLE "public"."project_relation" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."project_secrets_provider_access" (
+    "secretsProviderConnectionId" integer NOT NULL,
+    "projectId" character varying(36) NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."project_secrets_provider_access" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."role" (
@@ -545,6 +873,35 @@ COMMENT ON COLUMN "public"."scope"."displayName" IS 'Name used to display in the
 
 
 COMMENT ON COLUMN "public"."scope"."description" IS 'Text describing the scope in more detail of users';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."secrets_provider_connection" (
+    "id" integer NOT NULL,
+    "providerKey" character varying(128) NOT NULL,
+    "type" character varying(36) NOT NULL,
+    "encryptedSettings" "text" NOT NULL,
+    "isEnabled" boolean DEFAULT false NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."secrets_provider_connection" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."secrets_provider_connection"."type" IS 'Type of secrets provider. Possible values: awsSecretsManager, gcpSecretsManager, vault, azureKeyVault, infisical';
+
+
+
+ALTER TABLE "public"."secrets_provider_connection" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."secrets_provider_connection_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 
 
@@ -631,7 +988,7 @@ ALTER TABLE "public"."test_run" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."user" (
-    "id" "uuid" DEFAULT "uuid_in"((OVERLAY(OVERLAY("md5"(((("random"())::"text" || ':'::"text") || ("clock_timestamp"())::"text")) PLACING '4'::"text" FROM 13) PLACING "to_hex"(("floor"((("random"() * (((11 - 8) + 1))::double precision) + (8)::double precision)))::integer) FROM 17))::"cstring") NOT NULL,
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "email" character varying(255),
     "firstName" character varying(32),
     "lastName" character varying(32),
@@ -659,7 +1016,8 @@ CREATE TABLE IF NOT EXISTS "public"."user_api_keys" (
     "apiKey" character varying NOT NULL,
     "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
     "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
-    "scopes" json
+    "scopes" json,
+    "audience" character varying DEFAULT 'public-api'::character varying NOT NULL
 );
 
 
@@ -670,7 +1028,8 @@ CREATE TABLE IF NOT EXISTS "public"."variables" (
     "key" character varying(50) NOT NULL,
     "type" character varying(50) DEFAULT 'string'::character varying NOT NULL,
     "value" character varying(255),
-    "id" character varying(36) NOT NULL
+    "id" character varying(36) NOT NULL,
+    "projectId" character varying(36)
 );
 
 
@@ -690,6 +1049,53 @@ CREATE TABLE IF NOT EXISTS "public"."webhook_entity" (
 ALTER TABLE "public"."webhook_entity" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."workflow_dependency" (
+    "id" integer NOT NULL,
+    "workflowId" character varying(36) NOT NULL,
+    "workflowVersionId" integer NOT NULL,
+    "dependencyType" character varying(32) NOT NULL,
+    "dependencyKey" character varying(255) NOT NULL,
+    "dependencyInfo" json,
+    "indexVersionId" smallint DEFAULT 1 NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "publishedVersionId" character varying(36)
+);
+
+
+ALTER TABLE "public"."workflow_dependency" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."workflow_dependency"."workflowVersionId" IS 'Version of the workflow';
+
+
+
+COMMENT ON COLUMN "public"."workflow_dependency"."dependencyType" IS 'Type of dependency: "credential", "nodeType", "webhookPath", or "workflowCall"';
+
+
+
+COMMENT ON COLUMN "public"."workflow_dependency"."dependencyKey" IS 'ID or name of the dependency';
+
+
+
+COMMENT ON COLUMN "public"."workflow_dependency"."dependencyInfo" IS 'Additional info about the dependency, interpreted based on type';
+
+
+
+COMMENT ON COLUMN "public"."workflow_dependency"."indexVersionId" IS 'Version of the index structure';
+
+
+
+ALTER TABLE "public"."workflow_dependency" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."workflow_dependency_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."workflow_entity" (
     "name" character varying(128) NOT NULL,
     "active" boolean NOT NULL,
@@ -700,12 +1106,15 @@ CREATE TABLE IF NOT EXISTS "public"."workflow_entity" (
     "settings" json,
     "staticData" json,
     "pinData" json,
-    "versionId" character(36),
+    "versionId" character(36) NOT NULL,
     "triggerCount" integer DEFAULT 0 NOT NULL,
     "id" character varying(36) NOT NULL,
     "meta" json,
     "parentFolderId" character varying(36) DEFAULT NULL::character varying,
-    "isArchived" boolean DEFAULT false NOT NULL
+    "isArchived" boolean DEFAULT false NOT NULL,
+    "versionCounter" integer DEFAULT 1 NOT NULL,
+    "description" "text",
+    "activeVersionId" character varying(36)
 );
 
 
@@ -719,23 +1128,84 @@ CREATE TABLE IF NOT EXISTS "public"."workflow_history" (
     "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
     "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
     "nodes" json NOT NULL,
-    "connections" json NOT NULL
+    "connections" json NOT NULL,
+    "name" character varying(128),
+    "autosaved" boolean DEFAULT false NOT NULL,
+    "description" "text"
 );
 
 
 ALTER TABLE "public"."workflow_history" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."workflow_publish_history" (
+    "id" integer NOT NULL,
+    "workflowId" character varying(36) NOT NULL,
+    "versionId" character varying(36) NOT NULL,
+    "event" character varying(36) NOT NULL,
+    "userId" "uuid",
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "CHK_workflow_publish_history_event" CHECK ((("event")::"text" = ANY ((ARRAY['activated'::character varying, 'deactivated'::character varying])::"text"[])))
+);
+
+
+ALTER TABLE "public"."workflow_publish_history" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."workflow_publish_history"."event" IS 'Type of history record: activated (workflow is now active), deactivated (workflow is now inactive)';
+
+
+
+ALTER TABLE "public"."workflow_publish_history" ALTER COLUMN "id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME "public"."workflow_publish_history_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."workflow_published_version" (
+    "workflowId" character varying(36) NOT NULL,
+    "publishedVersionId" character varying(36) NOT NULL,
+    "createdAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+    "updatedAt" timestamp(3) with time zone DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+);
+
+
+ALTER TABLE "public"."workflow_published_version" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."workflow_statistics" (
-    "count" integer DEFAULT 0,
+    "count" bigint DEFAULT 0,
     "latestEvent" timestamp(3) with time zone,
     "name" character varying(128) NOT NULL,
     "workflowId" character varying(36) NOT NULL,
-    "rootCount" integer DEFAULT 0
+    "rootCount" bigint DEFAULT 0,
+    "id" integer NOT NULL,
+    "workflowName" character varying(128)
 );
 
 
 ALTER TABLE "public"."workflow_statistics" OWNER TO "postgres";
+
+
+CREATE SEQUENCE IF NOT EXISTS "public"."workflow_statistics_id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE "public"."workflow_statistics_id_seq" OWNER TO "postgres";
+
+
+ALTER SEQUENCE "public"."workflow_statistics_id_seq" OWNED BY "public"."workflow_statistics"."id";
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."workflows_tags" (
@@ -767,8 +1237,17 @@ ALTER TABLE ONLY "public"."migrations" ALTER COLUMN "id" SET DEFAULT "nextval"('
 
 
 
+ALTER TABLE ONLY "public"."workflow_statistics" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."workflow_statistics_id_seq"'::"regclass");
+
+
+
 ALTER TABLE ONLY "public"."test_run"
     ADD CONSTRAINT "PK_011c050f566e9db509a0fadb9b9" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."project_secrets_provider_access"
+    ADD CONSTRAINT "PK_0402b7fcec5415246656f102f83" PRIMARY KEY ("secretsProviderConnectionId", "projectId");
 
 
 
@@ -787,6 +1266,11 @@ ALTER TABLE ONLY "public"."project_relation"
 
 
 
+ALTER TABLE ONLY "public"."chat_hub_sessions"
+    ADD CONSTRAINT "PK_1eafef1273c70e4464fec703412" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."folder_tag"
     ADD CONSTRAINT "PK_27e4e00852f6b06a925a4d83a3e" PRIMARY KEY ("folderId", "tagId");
 
@@ -797,8 +1281,23 @@ ALTER TABLE ONLY "public"."role"
 
 
 
+ALTER TABLE ONLY "public"."secrets_provider_connection"
+    ADD CONSTRAINT "PK_4350ae85e76f9ba7df1370acb5d" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."project"
     ADD CONSTRAINT "PK_4d68b1358bb5b766d3e78f32f57" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."dynamic_credential_entry"
+    ADD CONSTRAINT "PK_5135ffcabecad4727ff6b9b803d" PRIMARY KEY ("credential_id", "subject_id", "resolver_id");
+
+
+
+ALTER TABLE ONLY "public"."workflow_dependency"
+    ADD CONSTRAINT "PK_52325e34cd7a2f0f67b0f3cad65" PRIMARY KEY ("id");
 
 
 
@@ -809,6 +1308,11 @@ ALTER TABLE ONLY "public"."invalid_auth_token"
 
 ALTER TABLE ONLY "public"."shared_workflow"
     ADD CONSTRAINT "PK_5ba87620386b847201c9531c58f" PRIMARY KEY ("workflowId", "projectId");
+
+
+
+ALTER TABLE ONLY "public"."workflow_published_version"
+    ADD CONSTRAINT "PK_5c76fb7ee939fe2530374d3f75a" PRIMARY KEY ("workflowId");
 
 
 
@@ -827,8 +1331,28 @@ ALTER TABLE ONLY "public"."annotation_tag_entity"
 
 
 
+ALTER TABLE ONLY "public"."oauth_refresh_tokens"
+    ADD CONSTRAINT "PK_74abaed0b30711b6532598b0392" PRIMARY KEY ("token");
+
+
+
+ALTER TABLE ONLY "public"."dynamic_credential_user_entry"
+    ADD CONSTRAINT "PK_74f548e633abc66dc27c8f0ca77" PRIMARY KEY ("credentialId", "userId", "resolverId");
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_messages"
+    ADD CONSTRAINT "PK_7704a5add6baed43eef835f0bfb" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."execution_annotations"
     ADD CONSTRAINT "PK_7afcf93ffa20c4252869a7c6a23" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."oauth_user_consents"
+    ADD CONSTRAINT "PK_85b9ada746802c8993103470f05" PRIMARY KEY ("id");
 
 
 
@@ -877,8 +1401,23 @@ ALTER TABLE ONLY "public"."workflow_history"
 
 
 
+ALTER TABLE ONLY "public"."dynamic_credential_resolver"
+    ADD CONSTRAINT "PK_b76cfb088dcdaf5275e9980bb64" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."scope"
     ADD CONSTRAINT "PK_bfc45df0481abd7f355d6187da1" PRIMARY KEY ("slug");
+
+
+
+ALTER TABLE ONLY "public"."oauth_clients"
+    ADD CONSTRAINT "PK_c4759172d3431bae6f04e678e0d" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."workflow_publish_history"
+    ADD CONSTRAINT "PK_c788f7caf88e91e365c97d6d04a" PRIMARY KEY ("id");
 
 
 
@@ -889,6 +1428,11 @@ ALTER TABLE ONLY "public"."processed_data"
 
 ALTER TABLE ONLY "public"."settings"
     ADD CONSTRAINT "PK_dc0fe14e6d9943f268e7b119f69ab8bd" PRIMARY KEY ("key");
+
+
+
+ALTER TABLE ONLY "public"."oauth_access_tokens"
+    ADD CONSTRAINT "PK_dcd71f96a5d5f4bf79e67d322bf" PRIMARY KEY ("token");
 
 
 
@@ -907,13 +1451,33 @@ ALTER TABLE ONLY "public"."insights_raw"
 
 
 
+ALTER TABLE ONLY "public"."chat_hub_agents"
+    ADD CONSTRAINT "PK_f39a3b36bbdf0e2979ddb21cf78" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."insights_metadata"
     ADD CONSTRAINT "PK_f448a94c35218b6208ce20cf5a1" PRIMARY KEY ("metaId");
 
 
 
+ALTER TABLE ONLY "public"."oauth_authorization_codes"
+    ADD CONSTRAINT "PK_fb91ab932cfbd694061501cc20f" PRIMARY KEY ("code");
+
+
+
+ALTER TABLE ONLY "public"."binary_data"
+    ADD CONSTRAINT "PK_fc3691585b39408bb0551122af6" PRIMARY KEY ("fileId");
+
+
+
 ALTER TABLE ONLY "public"."role_scope"
     ADD CONSTRAINT "PK_role_scope" PRIMARY KEY ("roleSlug", "scopeSlug");
+
+
+
+ALTER TABLE ONLY "public"."oauth_user_consents"
+    ADD CONSTRAINT "UQ_083721d99ce8db4033e2958ebb4" UNIQUE ("userId", "clientId");
 
 
 
@@ -962,11 +1526,6 @@ ALTER TABLE ONLY "public"."execution_entity"
 
 
 
-ALTER TABLE ONLY "public"."workflow_statistics"
-    ADD CONSTRAINT "pk_workflow_statistics" PRIMARY KEY ("workflowId", "name");
-
-
-
 ALTER TABLE ONLY "public"."workflows_tags"
     ADD CONSTRAINT "pk_workflows_tags" PRIMARY KEY ("workflowId", "tagId");
 
@@ -978,17 +1537,21 @@ ALTER TABLE ONLY "public"."tag_entity"
 
 
 ALTER TABLE ONLY "public"."variables"
-    ADD CONSTRAINT "variables_key_key" UNIQUE ("key");
-
-
-
-ALTER TABLE ONLY "public"."variables"
     ADD CONSTRAINT "variables_pkey" PRIMARY KEY ("id");
 
 
 
 ALTER TABLE ONLY "public"."workflow_entity"
     ADD CONSTRAINT "workflow_entity_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."workflow_statistics"
+    ADD CONSTRAINT "workflow_statistics_pkey" PRIMARY KEY ("id");
+
+
+
+CREATE INDEX "IDX_070b5de842ece9ccdda0d9738b" ON "public"."workflow_publish_history" USING "btree" ("workflowId", "versionId");
 
 
 
@@ -1008,6 +1571,10 @@ CREATE UNIQUE INDEX "IDX_1ef35bac35d20bdae979d917a3" ON "public"."user_api_keys"
 
 
 
+CREATE INDEX "IDX_56900edc3cfd16612e2ef2c6a8" ON "public"."binary_data" USING "btree" ("sourceType", "sourceId");
+
+
+
 CREATE INDEX "IDX_5f0643f6717905a05164090dde" ON "public"."project_relation" USING "btree" ("userId");
 
 
@@ -1020,7 +1587,15 @@ CREATE INDEX "IDX_61448d56d61802b5dfde5cdb00" ON "public"."project_relation" USI
 
 
 
+CREATE INDEX "IDX_62476b94b56d9dc7ed9ed75d3d" ON "public"."dynamic_credential_entry" USING "btree" ("subject_id");
+
+
+
 CREATE UNIQUE INDEX "IDX_63d7bbae72c767cf162d459fcc" ON "public"."user_api_keys" USING "btree" ("userId", "label");
+
+
+
+CREATE INDEX "IDX_6edec973a6450990977bb854c3" ON "public"."dynamic_credential_user_entry" USING "btree" ("resolverId");
 
 
 
@@ -1032,7 +1607,23 @@ CREATE UNIQUE INDEX "IDX_97f863fa83c4786f1956508496" ON "public"."execution_anno
 
 
 
+CREATE INDEX "IDX_9c9ee9df586e60bb723234e499" ON "public"."dynamic_credential_resolver" USING "btree" ("type");
+
+
+
+CREATE UNIQUE INDEX "IDX_UniqueRoleDisplayName" ON "public"."role" USING "btree" ("displayName");
+
+
+
 CREATE INDEX "IDX_a3697779b366e131b2bbdae297" ON "public"."execution_annotation_tags" USING "btree" ("tagId");
+
+
+
+CREATE INDEX "IDX_a36dc616fabc3f736bb82410a2" ON "public"."dynamic_credential_user_entry" USING "btree" ("userId");
+
+
+
+CREATE INDEX "IDX_a4ff2d9b9628ea988fa9e7d0bf" ON "public"."workflow_dependency" USING "btree" ("workflowId");
 
 
 
@@ -1048,7 +1639,27 @@ CREATE UNIQUE INDEX "IDX_cec8eea3bf49551482ccb4933e" ON "public"."execution_meta
 
 
 
+CREATE INDEX "IDX_chat_hub_messages_sessionId" ON "public"."chat_hub_messages" USING "btree" ("sessionId");
+
+
+
+CREATE INDEX "IDX_chat_hub_sessions_owner_lastmsg_id" ON "public"."chat_hub_sessions" USING "btree" ("ownerId", "lastMessageAt" DESC, "id");
+
+
+
+CREATE INDEX "IDX_d61a12235d268a49af6a3c09c1" ON "public"."dynamic_credential_entry" USING "btree" ("resolver_id");
+
+
+
 CREATE INDEX "IDX_d6870d3b6e4c185d33926f423c" ON "public"."test_run" USING "btree" ("workflowId");
+
+
+
+CREATE INDEX "IDX_e48a201071ab85d9d09119d640" ON "public"."workflow_dependency" USING "btree" ("dependencyKey");
+
+
+
+CREATE INDEX "IDX_e7fe1cfda990c14a445937d0b9" ON "public"."workflow_dependency" USING "btree" ("dependencyType");
 
 
 
@@ -1060,7 +1671,19 @@ CREATE INDEX "IDX_role_scope_scopeSlug" ON "public"."role_scope" USING "btree" (
 
 
 
+CREATE UNIQUE INDEX "IDX_secrets_provider_connection_providerKey" ON "public"."secrets_provider_connection" USING "btree" ("providerKey");
+
+
+
+CREATE INDEX "IDX_workflow_dependency_publishedVersionId" ON "public"."workflow_dependency" USING "btree" ("publishedVersionId");
+
+
+
 CREATE INDEX "IDX_workflow_entity_name" ON "public"."workflow_entity" USING "btree" ("name");
+
+
+
+CREATE UNIQUE INDEX "IDX_workflow_statistics_workflow_name" ON "public"."workflow_statistics" USING "btree" ("workflowId", "name");
 
 
 
@@ -1100,10 +1723,6 @@ CREATE UNIQUE INDEX "pk_tag_entity_id" ON "public"."tag_entity" USING "btree" ("
 
 
 
-CREATE UNIQUE INDEX "pk_variables_id" ON "public"."variables" USING "btree" ("id");
-
-
-
 CREATE UNIQUE INDEX "pk_workflow_entity_id" ON "public"."workflow_entity" USING "btree" ("id");
 
 
@@ -1120,8 +1739,30 @@ CREATE INDEX "user_role_idx" ON "public"."user" USING "btree" ("roleSlug");
 
 
 
+CREATE UNIQUE INDEX "variables_global_key_unique" ON "public"."variables" USING "btree" ("key") WHERE ("projectId" IS NULL);
+
+
+
+CREATE UNIQUE INDEX "variables_project_key_unique" ON "public"."variables" USING "btree" ("projectId", "key") WHERE ("projectId" IS NOT NULL);
+
+
+
+CREATE OR REPLACE TRIGGER "workflow_version_increment" BEFORE UPDATE ON "public"."workflow_entity" FOR EACH ROW EXECUTE FUNCTION "public"."increment_workflow_version"();
+
+
+
 ALTER TABLE ONLY "public"."processed_data"
     ADD CONSTRAINT "FK_06a69a7032c97a763c2c7599464" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."workflow_entity"
+    ADD CONSTRAINT "FK_08d6c67b7f722b0039d9d5ed620" FOREIGN KEY ("activeVersionId") REFERENCES "public"."workflow_history"("versionId") ON DELETE RESTRICT;
+
+
+
+ALTER TABLE ONLY "public"."project_secrets_provider_access"
+    ADD CONSTRAINT "FK_18e5c27d2524b1638b292904e48" FOREIGN KEY ("secretsProviderConnectionId") REFERENCES "public"."secrets_provider_connection"("id") ON DELETE CASCADE;
 
 
 
@@ -1135,8 +1776,23 @@ ALTER TABLE ONLY "public"."workflow_history"
 
 
 
+ALTER TABLE ONLY "public"."chat_hub_messages"
+    ADD CONSTRAINT "FK_1f4998c8a7dec9e00a9ab15550e" FOREIGN KEY ("revisionOfMessageId") REFERENCES "public"."chat_hub_messages"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."oauth_user_consents"
+    ADD CONSTRAINT "FK_21e6c3c2d78a097478fae6aaefa" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."insights_metadata"
     ADD CONSTRAINT "FK_2375a1eda085adb16b24615b69c" FOREIGN KEY ("projectId") REFERENCES "public"."project"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_messages"
+    ADD CONSTRAINT "FK_25c9736e7f769f3a005eef4b372" FOREIGN KEY ("retryOfMessageId") REFERENCES "public"."chat_hub_messages"("id") ON DELETE CASCADE;
 
 
 
@@ -1147,6 +1803,21 @@ ALTER TABLE ONLY "public"."execution_metadata"
 
 ALTER TABLE ONLY "public"."shared_credentials"
     ADD CONSTRAINT "FK_416f66fc846c7c442970c094ccf" FOREIGN KEY ("credentialsId") REFERENCES "public"."credentials_entity"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."variables"
+    ADD CONSTRAINT "FK_42f6c766f9f9d2edcc15bdd6e9b" FOREIGN KEY ("projectId") REFERENCES "public"."project"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_agents"
+    ADD CONSTRAINT "FK_441ba2caba11e077ce3fbfa2cd8" FOREIGN KEY ("ownerId") REFERENCES "public"."user"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."workflow_published_version"
+    ADD CONSTRAINT "FK_5c76fb7ee939fe2530374d3f75a" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE CASCADE;
 
 
 
@@ -1165,13 +1836,48 @@ ALTER TABLE ONLY "public"."insights_by_period"
 
 
 
+ALTER TABLE ONLY "public"."oauth_authorization_codes"
+    ADD CONSTRAINT "FK_64d965bd072ea24fb6da55468cd" FOREIGN KEY ("clientId") REFERENCES "public"."oauth_clients"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_messages"
+    ADD CONSTRAINT "FK_6afb260449dd7a9b85355d4e0c9" FOREIGN KEY ("executionId") REFERENCES "public"."execution_entity"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."insights_raw"
     ADD CONSTRAINT "FK_6e2e33741adef2a7c5d66befa4e" FOREIGN KEY ("metaId") REFERENCES "public"."insights_metadata"("metaId") ON DELETE CASCADE;
 
 
 
+ALTER TABLE ONLY "public"."workflow_publish_history"
+    ADD CONSTRAINT "FK_6eab5bd9eedabe9c54bd879fc40" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dynamic_credential_user_entry"
+    ADD CONSTRAINT "FK_6edec973a6450990977bb854c38" FOREIGN KEY ("resolverId") REFERENCES "public"."dynamic_credential_resolver"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."oauth_access_tokens"
+    ADD CONSTRAINT "FK_7234a36d8e49a1fa85095328845" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."installed_nodes"
     ADD CONSTRAINT "FK_73f857fc5dce682cef8a99c11dbddbc969618951" FOREIGN KEY ("package") REFERENCES "public"."installed_packages"("packageName") ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."oauth_access_tokens"
+    ADD CONSTRAINT "FK_78b26968132b7e5e45b75876481" FOREIGN KEY ("clientId") REFERENCES "public"."oauth_clients"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_sessions"
+    ADD CONSTRAINT "FK_7bc13b4c7e6afbfaf9be326c189" FOREIGN KEY ("credentialId") REFERENCES "public"."credentials_entity"("id") ON DELETE SET NULL;
 
 
 
@@ -1195,6 +1901,11 @@ ALTER TABLE ONLY "public"."data_table_column"
 
 
 
+ALTER TABLE ONLY "public"."dynamic_credential_user_entry"
+    ADD CONSTRAINT "FK_945ba70b342a066d1306b12ccd2" FOREIGN KEY ("credentialId") REFERENCES "public"."credentials_entity"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."folder_tag"
     ADD CONSTRAINT "FK_94a60854e06f2897b2e0d39edba" FOREIGN KEY ("folderId") REFERENCES "public"."folder"("id") ON DELETE CASCADE;
 
@@ -1205,8 +1916,23 @@ ALTER TABLE ONLY "public"."execution_annotations"
 
 
 
+ALTER TABLE ONLY "public"."chat_hub_agents"
+    ADD CONSTRAINT "FK_9c61ad497dcbae499c96a6a78ba" FOREIGN KEY ("credentialId") REFERENCES "public"."credentials_entity"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_sessions"
+    ADD CONSTRAINT "FK_9f9293d9f552496c40e0d1a8f80" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."execution_annotation_tags"
     ADD CONSTRAINT "FK_a3697779b366e131b2bbdae2976" FOREIGN KEY ("tagId") REFERENCES "public"."annotation_tag_entity"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."dynamic_credential_user_entry"
+    ADD CONSTRAINT "FK_a36dc616fabc3f736bb82410a22" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE CASCADE;
 
 
 
@@ -1215,8 +1941,58 @@ ALTER TABLE ONLY "public"."shared_workflow"
 
 
 
+ALTER TABLE ONLY "public"."workflow_dependency"
+    ADD CONSTRAINT "FK_a4ff2d9b9628ea988fa9e7d0bf8" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."oauth_user_consents"
+    ADD CONSTRAINT "FK_a651acea2f6c97f8c4514935486" FOREIGN KEY ("clientId") REFERENCES "public"."oauth_clients"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."oauth_refresh_tokens"
+    ADD CONSTRAINT "FK_a699f3ed9fd0c1b19bc2608ac53" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."dynamic_credential_entry"
+    ADD CONSTRAINT "FK_a6d1dd080958304a47a02952aab" FOREIGN KEY ("credential_id") REFERENCES "public"."credentials_entity"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."folder"
     ADD CONSTRAINT "FK_a8260b0b36939c6247f385b8221" FOREIGN KEY ("projectId") REFERENCES "public"."project"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."oauth_authorization_codes"
+    ADD CONSTRAINT "FK_aa8d3560484944c19bdf79ffa16" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_messages"
+    ADD CONSTRAINT "FK_acf8926098f063cdbbad8497fd1" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."oauth_refresh_tokens"
+    ADD CONSTRAINT "FK_b388696ce4d8be7ffbe8d3e4b69" FOREIGN KEY ("clientId") REFERENCES "public"."oauth_clients"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."workflow_publish_history"
+    ADD CONSTRAINT "FK_b4cfbc7556d07f36ca177f5e473" FOREIGN KEY ("versionId") REFERENCES "public"."workflow_history"("versionId") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."project_secrets_provider_access"
+    ADD CONSTRAINT "FK_bd264b81209355b543878deedb1" FOREIGN KEY ("projectId") REFERENCES "public"."project"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."workflow_publish_history"
+    ADD CONSTRAINT "FK_c01316f8c2d7101ec4fa9809267" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE CASCADE;
 
 
 
@@ -1235,6 +2011,21 @@ ALTER TABLE ONLY "public"."project_relation"
 
 
 
+ALTER TABLE ONLY "public"."chat_hub_messages"
+    ADD CONSTRAINT "FK_chat_hub_messages_agentId" FOREIGN KEY ("agentId") REFERENCES "public"."chat_hub_agents"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_sessions"
+    ADD CONSTRAINT "FK_chat_hub_sessions_agentId" FOREIGN KEY ("agentId") REFERENCES "public"."chat_hub_agents"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dynamic_credential_entry"
+    ADD CONSTRAINT "FK_d61a12235d268a49af6a3c09c13" FOREIGN KEY ("resolver_id") REFERENCES "public"."dynamic_credential_resolver"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."test_run"
     ADD CONSTRAINT "FK_d6870d3b6e4c185d33926f423c8" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE CASCADE;
 
@@ -1250,13 +2041,33 @@ ALTER TABLE ONLY "public"."folder_tag"
 
 
 
+ALTER TABLE ONLY "public"."workflow_published_version"
+    ADD CONSTRAINT "FK_df3428a541b802d6a63ac56e330" FOREIGN KEY ("publishedVersionId") REFERENCES "public"."workflow_history"("versionId") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."user_api_keys"
     ADD CONSTRAINT "FK_e131705cbbc8fb589889b02d457" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE CASCADE;
 
 
 
+ALTER TABLE ONLY "public"."chat_hub_messages"
+    ADD CONSTRAINT "FK_e22538eb50a71a17954cd7e076c" FOREIGN KEY ("sessionId") REFERENCES "public"."chat_hub_sessions"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."test_case_execution"
     ADD CONSTRAINT "FK_e48965fac35d0f5b9e7f51d8c44" FOREIGN KEY ("executionId") REFERENCES "public"."execution_entity"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_messages"
+    ADD CONSTRAINT "FK_e5d1fa722c5a8d38ac204746662" FOREIGN KEY ("previousMessageId") REFERENCES "public"."chat_hub_messages"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."chat_hub_sessions"
+    ADD CONSTRAINT "FK_e9ecf8ede7d989fcd18790fe36a" FOREIGN KEY ("ownerId") REFERENCES "public"."user"("id") ON DELETE CASCADE;
 
 
 
@@ -1280,6 +2091,11 @@ ALTER TABLE ONLY "public"."auth_identity"
 
 
 
+ALTER TABLE ONLY "public"."credentials_entity"
+    ADD CONSTRAINT "credentials_entity_resolverId_foreign" FOREIGN KEY ("resolverId") REFERENCES "public"."dynamic_credential_resolver"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."execution_data"
     ADD CONSTRAINT "execution_data_fk" FOREIGN KEY ("executionId") REFERENCES "public"."execution_entity"("id") ON DELETE CASCADE;
 
@@ -1300,11 +2116,6 @@ ALTER TABLE ONLY "public"."workflow_entity"
 
 
 
-ALTER TABLE ONLY "public"."workflow_statistics"
-    ADD CONSTRAINT "fk_workflow_statistics_workflow_id" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."workflows_tags"
     ADD CONSTRAINT "fk_workflows_tags_tag_id" FOREIGN KEY ("tagId") REFERENCES "public"."tag_entity"("id") ON DELETE CASCADE;
 
@@ -1312,6 +2123,11 @@ ALTER TABLE ONLY "public"."workflows_tags"
 
 ALTER TABLE ONLY "public"."workflows_tags"
     ADD CONSTRAINT "fk_workflows_tags_workflow_id" FOREIGN KEY ("workflowId") REFERENCES "public"."workflow_entity"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."project"
+    ADD CONSTRAINT "projects_creatorId_foreign" FOREIGN KEY ("creatorId") REFERENCES "public"."user"("id") ON DELETE SET NULL;
 
 
 
@@ -1477,6 +2293,12 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."increment_workflow_version"() TO "anon";
+GRANT ALL ON FUNCTION "public"."increment_workflow_version"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."increment_workflow_version"() TO "service_role";
+
+
+
 
 
 
@@ -1516,6 +2338,30 @@ GRANT ALL ON SEQUENCE "public"."auth_provider_sync_history_id_seq" TO "service_r
 
 
 
+GRANT ALL ON TABLE "public"."binary_data" TO "anon";
+GRANT ALL ON TABLE "public"."binary_data" TO "authenticated";
+GRANT ALL ON TABLE "public"."binary_data" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."chat_hub_agents" TO "anon";
+GRANT ALL ON TABLE "public"."chat_hub_agents" TO "authenticated";
+GRANT ALL ON TABLE "public"."chat_hub_agents" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."chat_hub_messages" TO "anon";
+GRANT ALL ON TABLE "public"."chat_hub_messages" TO "authenticated";
+GRANT ALL ON TABLE "public"."chat_hub_messages" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."chat_hub_sessions" TO "anon";
+GRANT ALL ON TABLE "public"."chat_hub_sessions" TO "authenticated";
+GRANT ALL ON TABLE "public"."chat_hub_sessions" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."credentials_entity" TO "anon";
 GRANT ALL ON TABLE "public"."credentials_entity" TO "authenticated";
 GRANT ALL ON TABLE "public"."credentials_entity" TO "service_role";
@@ -1531,6 +2377,24 @@ GRANT ALL ON TABLE "public"."data_table" TO "service_role";
 GRANT ALL ON TABLE "public"."data_table_column" TO "anon";
 GRANT ALL ON TABLE "public"."data_table_column" TO "authenticated";
 GRANT ALL ON TABLE "public"."data_table_column" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."dynamic_credential_entry" TO "anon";
+GRANT ALL ON TABLE "public"."dynamic_credential_entry" TO "authenticated";
+GRANT ALL ON TABLE "public"."dynamic_credential_entry" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."dynamic_credential_resolver" TO "anon";
+GRANT ALL ON TABLE "public"."dynamic_credential_resolver" TO "authenticated";
+GRANT ALL ON TABLE "public"."dynamic_credential_resolver" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."dynamic_credential_user_entry" TO "anon";
+GRANT ALL ON TABLE "public"."dynamic_credential_user_entry" TO "authenticated";
+GRANT ALL ON TABLE "public"."dynamic_credential_user_entry" TO "service_role";
 
 
 
@@ -1666,6 +2530,42 @@ GRANT ALL ON SEQUENCE "public"."migrations_id_seq" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."oauth_access_tokens" TO "anon";
+GRANT ALL ON TABLE "public"."oauth_access_tokens" TO "authenticated";
+GRANT ALL ON TABLE "public"."oauth_access_tokens" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."oauth_authorization_codes" TO "anon";
+GRANT ALL ON TABLE "public"."oauth_authorization_codes" TO "authenticated";
+GRANT ALL ON TABLE "public"."oauth_authorization_codes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."oauth_clients" TO "anon";
+GRANT ALL ON TABLE "public"."oauth_clients" TO "authenticated";
+GRANT ALL ON TABLE "public"."oauth_clients" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."oauth_refresh_tokens" TO "anon";
+GRANT ALL ON TABLE "public"."oauth_refresh_tokens" TO "authenticated";
+GRANT ALL ON TABLE "public"."oauth_refresh_tokens" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."oauth_user_consents" TO "anon";
+GRANT ALL ON TABLE "public"."oauth_user_consents" TO "authenticated";
+GRANT ALL ON TABLE "public"."oauth_user_consents" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."oauth_user_consents_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."oauth_user_consents_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."oauth_user_consents_id_seq" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."processed_data" TO "anon";
 GRANT ALL ON TABLE "public"."processed_data" TO "authenticated";
 GRANT ALL ON TABLE "public"."processed_data" TO "service_role";
@@ -1684,6 +2584,12 @@ GRANT ALL ON TABLE "public"."project_relation" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."project_secrets_provider_access" TO "anon";
+GRANT ALL ON TABLE "public"."project_secrets_provider_access" TO "authenticated";
+GRANT ALL ON TABLE "public"."project_secrets_provider_access" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."role" TO "anon";
 GRANT ALL ON TABLE "public"."role" TO "authenticated";
 GRANT ALL ON TABLE "public"."role" TO "service_role";
@@ -1699,6 +2605,18 @@ GRANT ALL ON TABLE "public"."role_scope" TO "service_role";
 GRANT ALL ON TABLE "public"."scope" TO "anon";
 GRANT ALL ON TABLE "public"."scope" TO "authenticated";
 GRANT ALL ON TABLE "public"."scope" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."secrets_provider_connection" TO "anon";
+GRANT ALL ON TABLE "public"."secrets_provider_connection" TO "authenticated";
+GRANT ALL ON TABLE "public"."secrets_provider_connection" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."secrets_provider_connection_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."secrets_provider_connection_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."secrets_provider_connection_id_seq" TO "service_role";
 
 
 
@@ -1762,6 +2680,18 @@ GRANT ALL ON TABLE "public"."webhook_entity" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."workflow_dependency" TO "anon";
+GRANT ALL ON TABLE "public"."workflow_dependency" TO "authenticated";
+GRANT ALL ON TABLE "public"."workflow_dependency" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."workflow_dependency_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."workflow_dependency_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."workflow_dependency_id_seq" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."workflow_entity" TO "anon";
 GRANT ALL ON TABLE "public"."workflow_entity" TO "authenticated";
 GRANT ALL ON TABLE "public"."workflow_entity" TO "service_role";
@@ -1774,9 +2704,33 @@ GRANT ALL ON TABLE "public"."workflow_history" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."workflow_publish_history" TO "anon";
+GRANT ALL ON TABLE "public"."workflow_publish_history" TO "authenticated";
+GRANT ALL ON TABLE "public"."workflow_publish_history" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."workflow_publish_history_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."workflow_publish_history_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."workflow_publish_history_id_seq" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."workflow_published_version" TO "anon";
+GRANT ALL ON TABLE "public"."workflow_published_version" TO "authenticated";
+GRANT ALL ON TABLE "public"."workflow_published_version" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."workflow_statistics" TO "anon";
 GRANT ALL ON TABLE "public"."workflow_statistics" TO "authenticated";
 GRANT ALL ON TABLE "public"."workflow_statistics" TO "service_role";
+
+
+
+GRANT ALL ON SEQUENCE "public"."workflow_statistics_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."workflow_statistics_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."workflow_statistics_id_seq" TO "service_role";
 
 
 
